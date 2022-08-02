@@ -23,15 +23,13 @@ def main(test_filter, run_aot_tests):
     # Apply filter
     filtered_suites = []
     for fname, tests in test_suite:
-        filtered_tests = [t for t in tests if fnmatch("{}.{}".format(fname, t.name), test_filter)]
-        if len(filtered_tests) != 0:
+        if filtered_tests := [
+            t for t in tests if fnmatch(f"{fname}.{t.name}", test_filter)
+        ]:
             filtered_suites.append((fname, filtered_tests))
     test_suite = filtered_suites
 
-    total_tests = 0
-    for fname, suite_tests in test_suite:
-        total_tests += len(suite_tests)
-
+    total_tests = sum(len(suite_tests) for fname, suite_tests in test_suite)
     failed_tests = []
 
 
@@ -46,7 +44,7 @@ def main(test_filter, run_aot_tests):
             if Runner.skipped(status):
                 skipped_tests.append((fname, test, status))
             if Runner.failed(status):
-                failed_tests.append("%s.%s" % (fname, test.name))
+                failed_tests.append(f"{fname}.{test.name}")
         # TODO(mmarchini) elapsed time per test suite and per test (like gtest)
         print(ok("[----------]") + " %d tests from %s\n" % (len(tests), fname))
     elapsed = time.time() - start_time
@@ -59,12 +57,16 @@ def main(test_filter, run_aot_tests):
     if skipped_tests:
         print(warn("[   SKIP   ]") + " %d tests, listed below:" % len(skipped_tests))
         for test_suite, test, status in skipped_tests:
-            print(warn("[   SKIP   ]") + " %s.%s (%s)" % (test_suite, test.name, Runner.skip_reason(test, status)))
+            print(
+                warn("[   SKIP   ]")
+                + f" {test_suite}.{test.name} ({Runner.skip_reason(test, status)})"
+            )
+
 
     if failed_tests:
         print(fail("[  FAILED  ]") + " %d tests, listed below:" % len(failed_tests))
         for failed_test in failed_tests:
-            print(fail("[  FAILED  ]") + " %s" % failed_test)
+            print(fail("[  FAILED  ]") + f" {failed_test}")
 
     if failed_tests:
         exit(1)

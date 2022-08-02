@@ -52,7 +52,7 @@ class TestParser(object):
             for filename in files:
                 if filename.startswith("."):
                     continue
-                parser = TestParser.read(root + '/' + filename)
+                parser = TestParser.read(f'{root}/{filename}')
                 if parser[1]:
                     if run_aot_tests:
                         for test in parser[1]:
@@ -61,9 +61,7 @@ class TestParser(object):
                                 continue
 
                             # _replace() creates a new instance w/ specified fields replaced
-                            test = test._replace(
-                                name='{}.{}'.format(test.suite, test.name),
-                                suite='aot')
+                            test = test._replace(name=f'{test.suite}.{test.name}', suite='aot')
                             aot_tests.append(test)
 
                     yield parser
@@ -85,12 +83,11 @@ class TestParser(object):
                     continue
                 if line != '\n':
                     test_lines.append(line)
-                if line == '\n' or line_num == len(lines):
-                    if test_lines:
-                        test_struct = TestParser.__read_test_struct(test_lines, test_suite)
-                        if not test_struct.arch or (platform.machine().lower() in test_struct.arch):
-                            tests.append(test_struct)
-                        test_lines = []
+                if (line == '\n' or line_num == len(lines)) and test_lines:
+                    test_struct = TestParser.__read_test_struct(test_lines, test_suite)
+                    if not test_struct.arch or (platform.machine().lower() in test_struct.arch):
+                        tests.append(test_struct)
+                    test_lines = []
 
         return (test_suite, tests)
 
@@ -171,22 +168,28 @@ class TestParser(object):
 
                 unknown = (feature_requirement | neg_feature_requirement) - features
                 if len(unknown) > 0:
-                    raise UnknownFieldError('%s is invalid for REQUIRES_FEATURE. Suite: %s' % (','.join(unknown), test_suite))
+                    raise UnknownFieldError(
+                        f"{','.join(unknown)} is invalid for REQUIRES_FEATURE. Suite: {test_suite}"
+                    )
+
             elif item_name == "WILL_FAIL":
                 will_fail = True
             else:
-                raise UnknownFieldError('Field %s is unknown. Suite: %s' % (item_name, test_suite))
+                raise UnknownFieldError(f'Field {item_name} is unknown. Suite: {test_suite}')
 
         if name == '':
-            raise RequiredFieldError('Test NAME is required. Suite: ' + test_suite)
+            raise RequiredFieldError(f'Test NAME is required. Suite: {test_suite}')
         elif run == '' and prog == '':
-            raise RequiredFieldError('Test RUN or PROG is required. Suite: ' + test_suite)
+            raise RequiredFieldError(f'Test RUN or PROG is required. Suite: {test_suite}')
         elif run != '' and prog != '':
-            raise InvalidFieldError('Test RUN and PROG both specified. Suit: ' + test_suite)
+            raise InvalidFieldError(
+                f'Test RUN and PROG both specified. Suit: {test_suite}'
+            )
+
         elif expect == '':
-            raise RequiredFieldError('Test EXPECT is required. Suite: ' + test_suite)
+            raise RequiredFieldError(f'Test EXPECT is required. Suite: {test_suite}')
         elif timeout == '':
-            raise RequiredFieldError('Test TIMEOUT is required. Suite: ' + test_suite)
+            raise RequiredFieldError(f'Test TIMEOUT is required. Suite: {test_suite}')
 
         return TestStruct(
             name,

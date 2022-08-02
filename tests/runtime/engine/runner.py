@@ -25,7 +25,7 @@ NO_COLOR = '\033[0m'
 
 # TODO(mmarchini) only add colors if terminal supports it
 def colorify(s, color):
-    return "%s%s%s" % (color, s, NO_COLOR) if sys.stdout.isatty() else s
+    return f"{color}{s}{NO_COLOR}" if sys.stdout.isatty() else s
 
 def ok(s):
     return colorify(s, OK_COLOR)
@@ -68,13 +68,13 @@ class Runner(object):
     @staticmethod
     def skip_reason(test, status):
         if status == Runner.SKIP_KERNEL_VERSION_MIN:
-            return "min Kernel: %s" % test.kernel_min
+            return f"min Kernel: {test.kernel_min}"
         if status == Runner.SKIP_KERNEL_VERSION_MAX:
-            return "max Kernel: %s" % test.kernel_max
+            return f"max Kernel: {test.kernel_max}"
         elif status == Runner.SKIP_REQUIREMENT_UNSATISFIED:
             return "unmet condition: '%s'" % test.requirement
         elif status == Runner.SKIP_FEATURE_REQUIREMENT_UNSATISFIED:
-            neg_reqs = { "!{}".format(f) for f in test.neg_feature_requirement }
+            neg_reqs = {f"!{f}" for f in test.neg_feature_requirement}
             return "missed feature: '%s'" % ','.join(
                 (neg_reqs | test.feature_requirement))
         elif status == Runner.SKIP_ENVIRONMENT_DISABLED:
@@ -86,21 +86,21 @@ class Runner(object):
 
     @staticmethod
     def prepare_bpf_call(test):
-        bpftrace_path = "{}/bpftrace".format(BPF_PATH)
-        bpftrace_aotrt_path = "{}/aot/bpftrace-aotrt".format(BPF_PATH)
+        bpftrace_path = f"{BPF_PATH}/bpftrace"
+        bpftrace_aotrt_path = f"{BPF_PATH}/aot/bpftrace-aotrt"
 
-        if test.run:
-            ret = re.sub("{{BPFTRACE}}", bpftrace_path, test.run)
-            ret = re.sub("{{BPFTRACE_AOTRT}}", bpftrace_aotrt_path, ret)
-
-            return ret
-        else:  # PROG
+        if not test.run:
             # We're only reusing PROG-directive tests for AOT tests
-            if test.suite == 'aot':
-                return "{} -e '{}' --aot /tmp/tmpprog.btaot && {} /tmp/tmpprog.btaot".format(
-                    bpftrace_path, test.prog, bpftrace_aotrt_path)
-            else:
-                return "{} -e '{}'".format(bpftrace_path, test.prog)
+            return (
+                f"{bpftrace_path} -e '{test.prog}' --aot /tmp/tmpprog.btaot && {bpftrace_aotrt_path} /tmp/tmpprog.btaot"
+                if test.suite == 'aot'
+                else f"{bpftrace_path} -e '{test.prog}'"
+            )
+
+        ret = re.sub("{{BPFTRACE}}", bpftrace_path, test.run)
+        ret = re.sub("{{BPFTRACE_AOTRT}}", bpftrace_aotrt_path, ret)
+
+        return ret
 
     @staticmethod
     def __handler(signum, frame):
@@ -115,20 +115,20 @@ class Runner(object):
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env={'PATH': "{}:{}".format(BPF_PATH, ENV_PATH)},
+            env={'PATH': f"{BPF_PATH}:{ENV_PATH}"},
             preexec_fn=os.setsid,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
         )
+
         output = p.communicate()[0]
-        bpffeature = {}
-        bpffeature["loop"] = output.find("Loop support: yes") != -1
+        bpffeature = {"loop": output.find("Loop support: yes") != -1}
         bpffeature["probe_read_kernel"] = output.find("probe_read_kernel: yes") != -1
         bpffeature["btf"] = output.find("btf (depends on Build:libbpf): yes") != -1
         bpffeature["kfunc"] = output.find("kfunc: yes") != -1
         bpffeature["dpath"] = output.find("dpath: yes") != -1
         bpffeature["uprobe_refcount"] = \
-            output.find("uprobe refcount (depends on Build:bcc bpf_attach_uprobe refcount): yes") != -1
+                output.find("uprobe refcount (depends on Build:bcc bpf_attach_uprobe refcount): yes") != -1
         bpffeature["bcc_usdt_addsem"] = output.find("bcc_usdt_addsem: yes") != -1
         bpffeature["signal"] = output.find("send_signal: yes") != -1
         bpffeature["iter:task"] = output.find("iter:task: yes") != -1
